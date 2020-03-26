@@ -1,3 +1,4 @@
+**Unfinish! Do not use this package!**
 # GLog
 符合 Journalctl 输出标准，配合 journalctl 使用。日志等级使用 journalctl 等级。
 
@@ -17,7 +18,7 @@ func main(){
 	// If mode = true,then stop log.
 	log := glog.New("[Test]",os.Getenv("PRODUCTION_MODE")).
 
-	// Open log by hand and set whitch level log could be shown.
+	// Open log by hand and set whitch log with level could be shown.
 	glog.Able(glog.Err,glog.Info)
 
 	log.Info("Is info log")
