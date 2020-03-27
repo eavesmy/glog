@@ -7,10 +7,12 @@ package glog
 // 4. log level
 
 import (
-	"fmt"
+	// "fmt"
 	"io"
 	"log"
 	"os"
+	"strings"
+	"time"
 )
 
 type Level uint8
@@ -72,9 +74,11 @@ func parseLevel(lstr string) Level {
 }
 
 type Logger struct {
-	Out    io.Writer
 	prefix string
+	level  Level
 	logger *log.Logger
+	unable map[Level]bool
+	sinces map[string]time.Time
 }
 
 func New(prefixs ...string) *Logger {
@@ -82,51 +86,99 @@ func New(prefixs ...string) *Logger {
 	if len(prefixs) > 0 {
 		prefix = prefixs[0]
 	}
+
 	return &Logger{
-		Out:    os.Stdout,
+		level:  INFO,
 		prefix: prefix,
-		logger: &log.Logger{},
+		logger: log.New(os.Stdout, "", log.Lshortfile),
+		unable: make(map[Level]bool),
+		sinces: make(map[string]time.Time),
 	}
 }
 
-func (l *Logger) SetOutput(output *os.File) *Logger {
-	l.Out = output
+func (l *Logger) SetOutput(output io.Writer) *Logger {
+	l.logger.SetOutput(output)
+	return l
+}
+
+func (l *Logger) SetLevel(level Level) *Logger {
+	l.level = level
 	return l
 }
 
 // shutdown logger.
-func (l *Logger) Enable(level Level) {
-
+func (l *Logger) Unable(c string) {
+	for _, str_level := range strings.Split(c, ",") {
+		level := parseLevel(str_level)
+		l.unable[level] = true
+	}
 }
 
-func (l *Logger) Emerg(msgs ...interface{}) {}
-func (l *Logger) Alert(msgs ...interface{}) {}
-func (l *Logger) Crit(msgs ...interface{})  {}
+func (l *Logger) Emerg(msgs ...interface{}) {
+	l.output(EMERG, msgs...)
+}
+func (l *Logger) Alert(msgs ...interface{}) {
+	l.output(ALERT, msgs...)
+}
+func (l *Logger) Crit(msgs ...interface{}) {
+	l.output(CRIT, msgs...)
+}
 func (l *Logger) Err(msgs ...interface{}) {
 	l.output(ERR, msgs...)
 }
-func (l *Logger) Warning(msgr ...interface{}) {}
-func (l *Logger) Notice(msgs ...interface{})  {}
+func (l *Logger) Warning(msgs ...interface{}) {
+	l.output(WARNING, msgs...)
+}
+func (l *Logger) Notice(msgs ...interface{}) {
+	l.output(NOTICE, msgs...)
+}
 func (l *Logger) Info(msgs ...interface{}) {
 	l.output(INFO, msgs...)
 }
-func (l *Logger) Debug(msgs ...interface{}) {}
 
-func (l *Logger) Time(prefix string)    {}
-func (l *Logger) TimeEnd(prefix string) {}
+func (l *Logger) Debug(msgs ...interface{}) {
+	l.output(DEBUG, msgs...)
+}
+func (l *Logger) Time(prefix string) {
+	l.sinces[prefix] = time.Now()
+}
+
+func (l *Logger) Println(v ...interface{}) {
+	l.output(l.level, v...)
+}
+
+func (l *Logger) Printf(format string, v ...interface{}) {
+	l.logger.SetPrefix("[" + l.level.String() + "] ")
+	l.logger.Printf(format, v...)
+}
+
+// Do not use this method.
+// Is a bad idea to write this.
+func (l *Logger) Print(v ...interface{}) {
+	l.logger.SetPrefix("[" + l.level.String() + "] ")
+	l.logger.Print(v...)
+}
+
+func (l *Logger) TimeEnd(prefix string) {
+	if t, exists := l.sinces[prefix]; exists {
+		l.Debug(prefix, time.Since(t))
+	}
+	l.Err("No this prefix", prefix)
+}
 
 func (l *Logger) output(level Level, msgs ...interface{}) {
 
-	mark := "[" + level.String() + "]"
+	if l.unable[level] {
+		return
+	}
+
+	mark := "[" + level.String() + "] "
 	infos := make([]interface{}, 0, len(msgs)+2)
 
-	infos = append(infos, mark)
 	infos = append(infos, l.prefix)
 	infos = append(infos, msgs...)
 
-	if level > ERR {
-		fmt.Fprintln(l.Out, infos...)
-	} else {
-		fmt.Fprintln(os.Stderr, infos...)
-	}
+	l.logger.SetPrefix(mark)
+
+	l.logger.Println(infos...)
 }
