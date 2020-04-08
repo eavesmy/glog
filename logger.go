@@ -90,7 +90,7 @@ func New(prefixs ...string) *Logger {
 	return &Logger{
 		level:  INFO,
 		prefix: prefix,
-		logger: log.New(os.Stdout, "", log.Lshortfile),
+		logger: log.New(os.Stdout, "", log.LUTC),
 		unable: make(map[Level]bool),
 		sinces: make(map[string]time.Time),
 	}
@@ -99,6 +99,10 @@ func New(prefixs ...string) *Logger {
 func (l *Logger) SetOutput(output io.Writer) *Logger {
 	l.logger.SetOutput(output)
 	return l
+}
+
+func (l *Logger) SetFlags(flags int) {
+	l.logger.SetFlags(flags)
 }
 
 func (l *Logger) SetLevel(level Level) *Logger {
